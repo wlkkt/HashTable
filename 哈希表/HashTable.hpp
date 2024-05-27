@@ -239,7 +239,7 @@ namespace hash_bucket
 	//	{}
 	//};
 
-	template<class K,class V>
+	template<class K,class V, class Hash = HashFunc<K>>
 	class HashTable
 	{
 		typedef HashNode<K, V> Node;
@@ -272,87 +272,90 @@ namespace hash_bucket
 		}
 
 
-	//采用头插的方式
+		//采用头插的方式
 		bool Insert(const pair<K, V>& kv)
 		{
-		//防止冗余
-		if(Find(kv.first))
-		return false;
+			//防止冗余
+			if (Find(kv.first))
+				return false;
 
-		//如果还是重新建立映射关系，如果结点个数过多，在新表创建结点和移动后删除旧表的结点需要很多的资源
-		//因为是队列是一个个挂在数组上的，所以当存放的有效元素个数 == 数组大小时才需要扩容
-		//if (_n == _table.size())
-		//{
-		//	//新建一个哈希表
-		//	HashTable<K, V> newHT;
-		//	//确定新哈希表的大小
-		//	newHT._table.resize(_table.size() * 2);
+			Hash hs;
 
-		//	//将旧表中的键重新映射到新表中
-		//	for (size_t i = 0; i < _table.size(); i++)//每一次的for循环都是将某一个数组下标中的结点都链接到新表中
-		//	{
-		//		Node* cur = _table[i];
-		//		while (cur)
-		//		{
-		//			newHT.Insert(_table[i]._kv);//直接复用Insert操作
-		//			cur = cur->_next;
-		//		}
-		//	}
-		//	_table.swap(newHT._table);//使用交换新旧表名中代表的地址信息
-		//}
+			//如果还是重新建立映射关系，如果结点个数过多，在新表创建结点和移动后删除旧表的结点需要很多的资源
+			//因为是队列是一个个挂在数组上的，所以当存放的有效元素个数 == 数组大小时才需要扩容
+			//if (_n == _table.size())
+			//{
+			//	//新建一个哈希表
+			//	HashTable<K, V> newHT;
+			//	//确定新哈希表的大小
+			//	newHT._table.resize(_table.size() * 2);
 
-		//应该在确认了映射关系后，直接将旧表中的所有结点移动到新表中，这样移动后旧表中只用析构一个vector，且不用创建新的结点
-		if (_n == _table.size())
-		{
-		vector<Node*> newTable(_table.size() * 2, nullptr);//设定新表大小及初始化各个位置
-		for (size_t i = 0; i < _table.size(); i++)
-		{
-		Node* cur = _table[i];//cur指向旧表的下标为i位置的结点（该结点是一条链表的头结点）
-					
-		//遍历一条链表
-		while (cur)
-		{
-		Node* next = cur->_next;//next存放cur的下一个结点的位置
-		//确定将旧表cur指向的结点要头插新表的哪个位置
-		size_t hashi = cur->_kv.first % newTable.size();
-		cur->_next = newTable[hashi];//头插（忘了回去看外面的注释，这点就是有点会让人发懵）
-		newTable[hashi] = cur;
+			//	//将旧表中的键重新映射到新表中
+			//	for (size_t i = 0; i < _table.size(); i++)//每一次的for循环都是将某一个数组下标中的结点都链接到新表中
+			//	{
+			//		Node* cur = _table[i];
+			//		while (cur)
+			//		{
+			//			newHT.Insert(_table[i]._kv);//直接复用Insert操作
+			//			cur = cur->_next;
+			//		}
+			//	}
+			//	_table.swap(newHT._table);//使用交换新旧表名中代表的地址信息
+			//}
 
-		cur = next;//cur指向自己的下一个结点
-		}
+			//应该在确认了映射关系后，直接将旧表中的所有结点移动到新表中，这样移动后旧表中只用析构一个vector，且不用创建新的结点
+			if (_n == _table.size())
+			{
+				vector<Node*> newTable(_table.size() * 2, nullptr);//设定新表大小及初始化各个位置
+				for (size_t i = 0; i < _table.size(); i++)
+				{
+					Node* cur = _table[i];//cur指向旧表的下标为i位置的结点（该结点是一条链表的头结点）
 
-		_table[i] = nullptr;//置空
-		}
-		/*cout <<"交换前旧表的地址为:" <<  & _table << endl;
-		cout <<"交换前新表的地址为:" <<  &newTable << endl;*/
+					//遍历一条链表
+					while (cur)
+					{
+						Node* next = cur->_next;//next存放cur的下一个结点的位置
+						//确定将旧表cur指向的结点要头插新表的哪个位置
+						size_t hashi = hs(cur->_kv.first) % newTable.size();
+						cur->_next = newTable[hashi];//头插（忘了回去看外面的注释，这点就是有点会让人发懵）
+						newTable[hashi] = cur;
 
-		_table.swap(newTable);//交换
+						cur = next;//cur指向自己的下一个结点
+					}
 
-		/*	cout << "交换后旧表的地址为:" << &_table << endl;
-		cout << "交换后新表的地址为:" << &newTable << endl;*/
-		}
+					_table[i] = nullptr;//置空
+				}
+				/*cout <<"交换前旧表的地址为:" <<  & _table << endl;
+				cout <<"交换前新表的地址为:" <<  &newTable << endl;*/
 
-		size_t hashi = kv.first % _table.size();
-		Node* newnode = new Node(kv);//匿名结点对象
-		//头插（数组中某个位置没有结点插入时_table[hashi] == nullptr）
-		newnode->_next = _table[hashi];//_新结点的next结点指向当前链表的头指针指向的结点
-		_table[hashi] = newnode;//令链表头指针指向新结点
-		++_n;
-		return true;
+				_table.swap(newTable);//交换
 
-		//哈希桶的头插类似于:
-		//Node* head = nullptr; // 初始化一个空的链表，现在数组中每个位置都是一个空指针
-		//void insertAtHead(int value) {
-		//	Node* newNode = new Node(value); // 创建一个新节点
-		//	newNode->next = head; // 将新节点的后继节点指向当前的头节点
-		//	head = newNode; // 更新头节点指针，使其指向新节点
-		//}
+				/*	cout << "交换后旧表的地址为:" << &_table << endl;
+					cout << "交换后新表的地址为:" << &newTable << endl;*/
+			}
+
+			size_t hashi = hs(kv.first) % _table.size();
+			Node* newnode = new Node(kv);//匿名结点对象
+			//头插（数组中某个位置没有结点插入时_table[hashi] == nullptr）
+			newnode->_next = _table[hashi];//_新结点的next结点指向当前链表的头指针指向的结点
+			_table[hashi] = newnode;//令链表头指针指向新结点
+			++_n;
+			return true;
+
+			//哈希桶的头插类似于:
+			//Node* head = nullptr; // 初始化一个空的链表，现在数组中每个位置都是一个空指针
+			//void insertAtHead(int value) {
+			//	Node* newNode = new Node(value); // 创建一个新节点
+			//	newNode->next = head; // 将新节点的后继节点指向当前的头节点
+			//	head = newNode; // 更新头节点指针，使其指向新节点
+			//}
 		}
 
 		//链表的遍历
 		Node* Find(const K& key)
 		{
-			size_t hashi = key % _table.size();
+			Hash hs;
+			size_t hashi = hs(key) % _table.size();
 			Node* cur = _table[hashi];//直接去映射位置上查找
 			while (cur)
 			{
@@ -363,15 +366,33 @@ namespace hash_bucket
 
 				cur = cur->_next;
 			}
-
 			return nullptr;
 		}
 
 
 		bool Erase(const K& key)
 		{
-		
-		
+			Hash hs;
+
+			size_t hashi = hs(key) % _table.size();
+			Node* prev = nullptr;
+			Node* cur = _table[hashi];//直接去映射位置上查找
+			while (cur)
+			{
+				if (cur->_kv.first == key)
+				{
+
+					delete cur;
+				}
+				else
+				{
+					prev = cur->_next;
+					cur = prev;
+				}
+				cur = cur->_next;
+			}
+
+			return nullptr;
 		}
 
 	private:
@@ -389,14 +410,15 @@ namespace hash_bucket
 			}
 
 
-			ht.Insert(make_pair(32, 32));
-			ht.Insert(make_pair(32, 32));
-
-		///*	ht.Erase(31);
-		//	ht.Erase(11);*/
-
-
+			//ht.Insert(make_pair(32, 32));
+			//ht.Insert(make_pair(32, 32));
 	}
 
-
+	void HashTest2()
+	{
+		HashTable<string, int> ht;
+		ht.Insert(make_pair("sort", 1));
+		ht.Insert(make_pair("left", 1));
+		ht.Insert(make_pair("insert", 1));
+	}
 }
